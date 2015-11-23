@@ -146,7 +146,9 @@ var VelocityTransitionGroup = React.createClass({
     // By finishing a "leave" on the element, we put it in the right state to be animated in. Useful
     // if "leave" includes a rotation or something that we'd like to have as our starting point, for
     // symmetry.
-    this._finishAnimation(node, this.props.leave);
+    // We use overrideOpts to prevent any "complete" callback from triggering in this case, since
+    // it doesn't make a ton of sense.
+    this._finishAnimation(node, this.props.leave, {complete: undefined});
 
     // We're not going to start the animation for a tick, so set the node's display to none so that
     // it doesn't flash in.
@@ -292,16 +294,20 @@ var VelocityTransitionGroup = React.createClass({
     // any _finishAnimation that's happening.
     window.requestAnimationFrame(function () {
       Velocity(nodes, animation, _.extend({}, opts, {
-        complete: completeFn
+        // The || here to prevent making a closure if we don't need one.
+        complete: (completeFn || opts.complete) ? function () {
+          completeFn ? completeFn() : undefined
+          opts.complete ? opts.complete() : undefined
+        } : undefined
       }));
     });
   },
 
-  _finishAnimation: function (node, animationProp) {
+  _finishAnimation: function (node, animationProp, overrideOpts) {
     var parsedAnimation = this._parseAnimationProp(animationProp);
     var animation = parsedAnimation.animation;
     var style = parsedAnimation.style;
-    var opts = parsedAnimation.opts;
+    var opts = _.extend({}, parsedAnimation.opts, overrideOpts);
 
     if (style != null) {
       _.each(style, function (value, key) {
